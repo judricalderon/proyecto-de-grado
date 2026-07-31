@@ -1,0 +1,14 @@
+version = 0.1
+
+[default.deploy.parameters]
+stack_name = "proyecto-grado-dev"
+region = "us-east-1"
+confirm_changeset = true
+capabilities = "CAPABILITY_IAM"
+resolve_s3 = true
+s3_prefix = "proyecto-grado-dev"
+profile = "proyecto-grado"
+image_repositories = []
+
+[default.global.parameters]
+region = "us-east-1"

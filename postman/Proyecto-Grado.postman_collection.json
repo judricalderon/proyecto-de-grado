@@ -1,0 +1,115 @@
+{
+  "info": {
+    "_postman_id": "7ac4b981-ef9f-4aa1-919e-0136f2f8ed11",
+    "name": "Proyecto Grado API",
+    "description": "Colección derivada del código AWS SAM. Los repositorios son mocks aislados por Lambda; PROP-001, MOD-001 y FASE-001 son referencias iniciales.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {"key":"baseUrl","value":"https://zmxrn53qkj.execute-api.us-east-1.amazonaws.com/dev","type":"string"},
+    {"key":"usuarioId","value":"USR-001","type":"string"},
+    {"key":"propuestaId","value":"PROP-001","type":"string"},
+    {"key":"moduloId","value":"MOD-001","type":"string"},
+    {"key":"faseId","value":"FASE-001","type":"string"},
+    {"key":"agenteId","value":"","type":"string"},
+    {"key":"evaluacionId","value":"","type":"string"},
+    {"key":"documentoId","value":"","type":"string"}
+  ],
+  "event": [
+    {"listen":"test","script":{"type":"text/javascript","exec":["pm.test('Código HTTP exitoso esperado', function () {","  pm.expect(pm.response.code).to.be.oneOf([200, 201, 204]);","});","if (pm.response.code !== 204) {","  pm.test('Respuesta JSON', function () { pm.response.to.be.json; });","}"]}}
+  ],
+  "item": [
+    {
+      "name":"Usuarios",
+      "item":[
+        {"name":"Salud usuarios","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/usuarios/health","host":["{{baseUrl}}"],"path":["usuarios","health"]}}},
+        {"name":"Listar usuarios","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/usuarios","host":["{{baseUrl}}"],"path":["usuarios"]}}},
+        {"name":"Filtrar estudiantes activos","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/usuarios?tipo_usuario=ESTUDIANTE&estado=ACTIVO","host":["{{baseUrl}}"],"path":["usuarios"],"query":[{"key":"tipo_usuario","value":"ESTUDIANTE"},{"key":"estado","value":"ACTIVO"}]}}},
+        {"name":"Obtener usuario","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/usuarios/{{usuarioId}}","host":["{{baseUrl}}"],"path":["usuarios","{{usuarioId}}"]}}},
+        {"name":"Crear usuario","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) {","  const json = pm.response.json();","  pm.environment.set('usuarioId', json.data.id);","}"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nombre\": \"Laura Gómez\",\n  \"correo\": \"laura@example.com\",\n  \"tipo_usuario\": \"ESTUDIANTE\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/usuarios","host":["{{baseUrl}}"],"path":["usuarios"]}}},
+        {"name":"Actualizar usuario","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nombre\": \"Laura Gómez Actualizada\",\n  \"estado\": \"ACTIVO\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/usuarios/{{usuarioId}}","host":["{{baseUrl}}"],"path":["usuarios","{{usuarioId}}"]}}},
+        {"name":"Desactivar usuario","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/usuarios/{{usuarioId}}","host":["{{baseUrl}}"],"path":["usuarios","{{usuarioId}}"]}}}
+      ]
+    },
+    {
+      "name":"Propuestas",
+      "item":[
+        {"name":"Salud propuestas","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/health","host":["{{baseUrl}}"],"path":["propuestas","health"]}}},
+        {"name":"Listar propuestas","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas","host":["{{baseUrl}}"],"path":["propuestas"]}}},
+        {"name":"Obtener propuesta","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}"]}}},
+        {"name":"Crear propuesta","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) {","  pm.environment.set('propuestaId', pm.response.json().data.id);","}"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"titulo_tentativo\": \"Sistema de tutorías inteligentes\",\n  \"descripcion_inicial\": \"Plataforma para acompañar proyectos académicos.\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas","host":["{{baseUrl}}"],"path":["propuestas"]}}},
+        {"name":"Actualizar propuesta","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"titulo_tentativo\": \"Título actualizado\",\n  \"estado_general\": \"EN_REVISION\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}"]}}},
+        {"name":"Cerrar propuesta","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}"]}}},
+        {"name":"Listar estudiantes","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/estudiantes","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","estudiantes"]}}},
+        {"name":"Asignar estudiante","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"id_estudiante\": \"USR-002\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/estudiantes","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","estudiantes"]}}},
+        {"name":"Retirar estudiante","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/estudiantes/USR-002","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","estudiantes","USR-002"]}}},
+        {"name":"Obtener director","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/director","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","director"]}}},
+        {"name":"Asignar director","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"id_docente\": \"USR-010\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/director","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","director"]}}},
+        {"name":"Desasignar director","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/director","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","director"]}}}
+      ]
+    },
+    {
+      "name":"Catálogos - Módulos",
+      "item":[
+        {"name":"Listar módulos","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/modulos","host":["{{baseUrl}}"],"path":["modulos"]}}},
+        {"name":"Obtener módulo","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/modulos/{{moduloId}}","host":["{{baseUrl}}"],"path":["modulos","{{moduloId}}"]}}},
+        {"name":"Crear módulo","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) { pm.environment.set('moduloId', pm.response.json().data.id); }"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nombre\": \"Segundo módulo\",\n  \"descripcion\": \"Continuación del proceso\",\n  \"orden\": 2,\n  \"activo\": true\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/modulos","host":["{{baseUrl}}"],"path":["modulos"]}}},
+        {"name":"Actualizar módulo","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nombre\": \"Módulo actualizado\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/modulos/{{moduloId}}","host":["{{baseUrl}}"],"path":["modulos","{{moduloId}}"]}}},
+        {"name":"Desactivar módulo","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/modulos/{{moduloId}}","host":["{{baseUrl}}"],"path":["modulos","{{moduloId}}"]}}}
+      ]
+    },
+    {
+      "name":"Catálogos - Fases",
+      "item":[
+        {"name":"Listar fases","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/fases","host":["{{baseUrl}}"],"path":["fases"]}}},
+        {"name":"Obtener fase","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/fases/{{faseId}}","host":["{{baseUrl}}"],"path":["fases","{{faseId}}"]}}},
+        {"name":"Listar fases por módulo","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/modulos/{{moduloId}}/fases","host":["{{baseUrl}}"],"path":["modulos","{{moduloId}}","fases"]}}},
+        {"name":"Crear fase","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) { pm.environment.set('faseId', pm.response.json().data.id); }"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"id_modulo\": \"{{moduloId}}\",\n  \"nombre\": \"Cierre\",\n  \"descripcion\": \"Cierre del proyecto\",\n  \"orden\": 8,\n  \"activo\": true\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/fases","host":["{{baseUrl}}"],"path":["fases"]}}},
+        {"name":"Actualizar fase","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"descripcion\": \"Descripción actualizada\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/fases/{{faseId}}","host":["{{baseUrl}}"],"path":["fases","{{faseId}}"]}}},
+        {"name":"Desactivar fase","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/fases/{{faseId}}","host":["{{baseUrl}}"],"path":["fases","{{faseId}}"]}}}
+      ]
+    },
+    {
+      "name":"Catálogos - Agentes",
+      "item":[
+        {"name":"Listar agentes","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/agentes","host":["{{baseUrl}}"],"path":["agentes"]}}},
+        {"name":"Obtener agente","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/agentes/{{agenteId}}","host":["{{baseUrl}}"],"path":["agentes","{{agenteId}}"]}}},
+        {"name":"Crear agente","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) { pm.environment.set('agenteId', pm.response.json().data.id); }"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nombre\": \"Orientador\",\n  \"tipo_agente\": \"ORIENTADOR\",\n  \"descripcion\": \"Guía el proceso\",\n  \"activo\": true\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/agentes","host":["{{baseUrl}}"],"path":["agentes"]}}},
+        {"name":"Actualizar agente","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"descripcion\": \"Guía actualizada\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/agentes/{{agenteId}}","host":["{{baseUrl}}"],"path":["agentes","{{agenteId}}"]}}},
+        {"name":"Desactivar agente","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/agentes/{{agenteId}}","host":["{{baseUrl}}"],"path":["agentes","{{agenteId}}"]}}}
+      ]
+    },
+    {
+      "name":"Progreso",
+      "item":[
+        {"name":"Salud progreso","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/progreso/health","host":["{{baseUrl}}"],"path":["progreso","health"]}}},
+        {"name":"Listar progreso","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/progreso","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","progreso"]}}},
+        {"name":"Obtener progreso de fase","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/progreso/{{faseId}}","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","progreso","{{faseId}}"]}}},
+        {"name":"Crear progreso","request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"id_fase\": \"{{faseId}}\",\n  \"estado\": \"NO_INICIADA\",\n  \"porcentaje_avance\": 0\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/progreso","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","progreso"]}}},
+        {"name":"Actualizar progreso","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"estado\": \"EN_PROGRESO\",\n  \"porcentaje_avance\": 50\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/progreso/{{faseId}}","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","progreso","{{faseId}}"]}}}
+      ]
+    },
+    {
+      "name":"Evaluaciones",
+      "item":[
+        {"name":"Salud evaluaciones","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/evaluaciones/health","host":["{{baseUrl}}"],"path":["evaluaciones","health"]}}},
+        {"name":"Listar evaluaciones de propuesta","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/evaluaciones","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","evaluaciones"]}}},
+        {"name":"Listar evaluaciones de fase","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/fases/{{faseId}}/evaluaciones","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","fases","{{faseId}}","evaluaciones"]}}},
+        {"name":"Obtener evaluación más reciente","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/fases/{{faseId}}/evaluaciones/ultima","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","fases","{{faseId}}","evaluaciones","ultima"]}}},
+        {"name":"Crear evaluación","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) { pm.environment.set('evaluacionId', pm.response.json().data.id); }"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nivel_claridad\": 5,\n  \"nivel_argumentacion\": 4,\n  \"nivel_coherencia\": 5,\n  \"fortalezas\": \"Claridad del planteamiento\",\n  \"aspectos_por_fortalecer\": \"Referencias bibliográficas\",\n  \"observaciones\": \"Revisar fuentes\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/fases/{{faseId}}/evaluaciones","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","fases","{{faseId}}","evaluaciones"]}}},
+        {"name":"Obtener evaluación","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/evaluaciones/{{evaluacionId}}","host":["{{baseUrl}}"],"path":["evaluaciones","{{evaluacionId}}"]}}}
+      ]
+    },
+    {
+      "name":"Documentos",
+      "item":[
+        {"name":"Salud documentos","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/documentos/health","host":["{{baseUrl}}"],"path":["documentos","health"]}}},
+        {"name":"Listar documentos","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/documentos","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","documentos"]}}},
+        {"name":"Obtener documento","request":{"method":"GET","header":[],"url":{"raw":"{{baseUrl}}/documentos/{{documentoId}}","host":["{{baseUrl}}"],"path":["documentos","{{documentoId}}"]}}},
+        {"name":"Crear documento","event":[{"listen":"test","script":{"type":"text/javascript","exec":["if (pm.response.code === 201) { pm.environment.set('documentoId', pm.response.json().data.id); }"]}}],"request":{"method":"POST","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"tipo_documento\": \"ANEXO\",\n  \"nombre_archivo\": \"anexo.pdf\",\n  \"ruta\": \"temporal/anexo.pdf\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/propuestas/{{propuestaId}}/documentos","host":["{{baseUrl}}"],"path":["propuestas","{{propuestaId}}","documentos"]}}},
+        {"name":"Actualizar documento","request":{"method":"PUT","header":[{"key":"Content-Type","value":"application/json"}],"body":{"mode":"raw","raw":"{\n  \"nombre_archivo\": \"anexo-actualizado.pdf\",\n  \"tipo_documento\": \"INFORME\"\n}","options":{"raw":{"language":"json"}}},"url":{"raw":"{{baseUrl}}/documentos/{{documentoId}}","host":["{{baseUrl}}"],"path":["documentos","{{documentoId}}"]}}},
+        {"name":"Eliminar documento","request":{"method":"DELETE","header":[],"url":{"raw":"{{baseUrl}}/documentos/{{documentoId}}","host":["{{baseUrl}}"],"path":["documentos","{{documentoId}}"]}}}
+      ]
+    }
+  ]
+}

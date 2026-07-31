@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Transform: AWS::Serverless-2016-10-31
+Description: API serverless del Proyecto Grado con repositorios mock.
+
+Parameters:
+  FrontendOrigin:
+    Type: String
+    Default: http://localhost:3000
+    Description: Origen permitido por CORS; reemplazar por el dominio del frontend en producción.
+
+Globals:
+  Function:
+    Runtime: python3.11
+    Architectures: [x86_64]
+    Timeout: 10
+    MemorySize: 256
+
+Resources:
+  ProyectoGradoApi:
+    Type: AWS::Serverless::HttpApi
+    Properties:
+      StageName: dev
+      CorsConfiguration:
+        AllowMethods: [GET, POST, PUT, DELETE, OPTIONS]
+        AllowHeaders: [Content-Type, Authorization]
+        AllowOrigins: [!Ref FrontendOrigin]
+
+  UsuariosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/usuarios/
+      Handler: app.lambda_handler
+      Events:
+        Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios/health, Method: GET}}
+        List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios, Method: GET}}
+        Get: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{id}", Method: GET}}
+        Create: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios, Method: POST}}
+        Update: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{id}", Method: PUT}}
+        Delete: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{id}", Method: DELETE}}
+
+  PropuestasFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/propuestas/
+      Handler: app.lambda_handler
+      Events:
+        Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /propuestas/health, Method: GET}}
+        List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /propuestas, Method: GET}}
+        Get: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id}", Method: GET}}
+        Create: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /propuestas, Method: POST}}
+        Update: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id}", Method: PUT}}
+        Delete: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id}", Method: DELETE}}
+        Students: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/estudiantes", Method: GET}}
+        AddStudent: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/estudiantes", Method: POST}}
+        RemoveStudent: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/estudiantes/{id_estudiante}", Method: DELETE}}
+        Director: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/director", Method: GET}}
+        AddDirector: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/director", Method: POST}}
+        RemoveDirector: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/director", Method: DELETE}}
+
+  CatalogosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/catalogos/
+      Handler: app.lambda_handler
+      Events:
+        ListModules: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /modulos, Method: GET}}
+        GetModule: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/modulos/{id}", Method: GET}}
+        CreateModule: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /modulos, Method: POST}}
+        UpdateModule: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/modulos/{id}", Method: PUT}}
+        DeleteModule: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/modulos/{id}", Method: DELETE}}
+        ListPhases: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /fases, Method: GET}}
+        GetPhase: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/fases/{id}", Method: GET}}
+        ModulePhases: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/modulos/{id_modulo}/fases", Method: GET}}
+        CreatePhase: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /fases, Method: POST}}
+        UpdatePhase: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/fases/{id}", Method: PUT}}
+        DeletePhase: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/fases/{id}", Method: DELETE}}
+        ListAgents: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /agentes, Method: GET}}
+        GetAgent: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/agentes/{id}", Method: GET}}
+        CreateAgent: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /agentes, Method: POST}}
+        UpdateAgent: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/agentes/{id}", Method: PUT}}
+        DeleteAgent: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/agentes/{id}", Method: DELETE}}
+
+  ProgresoFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/progreso/
+      Handler: app.lambda_handler
+      Events:
+        Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /progreso/health, Method: GET}}
+        List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/progreso", Method: GET}}
+        Get: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/progreso/{id_fase}", Method: GET}}
+        Create: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/progreso", Method: POST}}
+        Update: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/progreso/{id_fase}", Method: PUT}}
+
+  EvaluacionesFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/evaluaciones/
+      Handler: app.lambda_handler
+      Events:
+        Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /evaluaciones/health, Method: GET}}
+        Proposal: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/evaluaciones", Method: GET}}
+        Phase: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/fases/{id_fase}/evaluaciones", Method: GET}}
+        Latest: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/fases/{id_fase}/evaluaciones/ultima", Method: GET}}
+        Create: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/fases/{id_fase}/evaluaciones", Method: POST}}
+        Get: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/evaluaciones/{id}", Method: GET}}
+
+  DocumentosFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: functions/documentos/
+      Handler: app.lambda_handler
+      Events:
+        Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /documentos/health, Method: GET}}
+        List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/documentos", Method: GET}}
+        Get: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/documentos/{id}", Method: GET}}
+        Create: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/documentos", Method: POST}}
+        Update: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/documentos/{id}", Method: PUT}}
+        Delete: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/documentos/{id}", Method: DELETE}}
+
+Outputs:
+  ApiUrl:
+    Description: URL base pública de desarrollo de la HTTP API.
+    Value: !Sub "https://${ProyectoGradoApi}.execute-api.${AWS::Region}.${AWS::URLSuffix}/dev"
+  ApiId:
+    Description: Identificador de la HTTP API.
+    Value: !Ref ProyectoGradoApi

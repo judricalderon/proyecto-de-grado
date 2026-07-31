@@ -1,0 +1,80 @@
+# =========================
+# Python
+# =========================
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Entornos virtuales
+.venv/
+venv/
+env/
+ENV/
+
+# =========================
+# AWS SAM
+# =========================
+.aws-sam/
+samconfig.local.toml
+
+# =========================
+# Variables y secretos
+# =========================
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.crt
+credentials
+secrets.json
+
+# Credenciales AWS locales
+.aws/
+.aws/credentials
+.aws/config
+
+# =========================
+# Node / frontend futuro
+# =========================
+node_modules/
+.next/
+dist/
+build/
+coverage/
+.vercel/
+
+# =========================
+# IDE
+# =========================
+.vscode/
+.idea/
+*.code-workspace
+
+# =========================
+# Sistema operativo
+# =========================
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# =========================
+# Logs y temporales
+# =========================
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*.swo
+
+# =========================
+# OneDrive / Office
+# =========================
+~$*
