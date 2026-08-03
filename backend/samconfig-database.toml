@@ -1,0 +1,19 @@
+version = 0.1
+
+[default.global.parameters]
+region = "us-east-1"
+
+[default.validate.parameters]
+template_file = "database-template.yaml"
+lint = true
+profile = "proyecto-grado"
+region = "us-east-1"
+
+[default.deploy.parameters]
+template_file = "database-template.yaml"
+stack_name = "proyecto-grado-db-dev"
+region = "us-east-1"
+profile = "proyecto-grado"
+capabilities = "CAPABILITY_IAM"
+confirm_changeset = true
+resolve_s3 = true

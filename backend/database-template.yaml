@@ -1,0 +1,247 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  Infraestructura de base de datos de desarrollo para Proyecto Grado:
+  Aurora PostgreSQL Serverless v2, Data API y red privada dedicada.
+
+Parameters:
+  EnvironmentName:
+    Type: String
+    Default: dev
+    AllowedPattern: "^[a-z][a-z0-9-]{1,15}$"
+    ConstraintDescription: Debe comenzar por una letra minúscula y usar letras, números o guiones.
+  DatabaseName:
+    Type: String
+    Default: proyecto_grado
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_]{0,62}$"
+    ConstraintDescription: Debe ser un identificador PostgreSQL de hasta 63 caracteres.
+  MasterUsername:
+    Type: String
+    Default: proyecto_admin
+    MinLength: 1
+    MaxLength: 63
+    AllowedPattern: "^[a-zA-Z][a-zA-Z0-9_]*$"
+    ConstraintDescription: Debe comenzar por una letra y usar letras, números o guion bajo.
+  EngineVersion:
+    Type: String
+    Default: "17.7"
+    AllowedPattern: "^[0-9]+\\.[0-9]+$"
+    ConstraintDescription: Debe usar el formato mayor.menor, por ejemplo 17.7.
+  MinCapacity:
+    Type: Number
+    Default: 0
+    AllowedValues: [0, 0.5, 1, 1.5, 2]
+    Description: ACU mínimas. El valor 0 exige una versión compatible con auto-pausa Serverless v2.
+  MaxCapacity:
+    Type: Number
+    Default: 2
+    MinValue: 1
+    MaxValue: 256
+    Description: ACU máximas del clúster Serverless v2.
+  SecondsUntilAutoPause:
+    Type: Number
+    Default: 300
+    MinValue: 300
+    MaxValue: 86400
+    Description: Segundos de inactividad antes de pausar; aplica cuando MinCapacity es 0.
+  BackupRetentionPeriod:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    MaxValue: 35
+    Description: Días de retención de backups automatizados.
+
+Resources:
+  DatabaseVpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: 10.20.0.0/16
+      EnableDnsSupport: true
+      EnableDnsHostnames: true
+      InstanceTenancy: default
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-vpc"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  PrivateSubnetA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DatabaseVpc
+      CidrBlock: 10.20.1.0/24
+      AvailabilityZone: !Select [0, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-private-a"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  PrivateSubnetB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref DatabaseVpc
+      CidrBlock: 10.20.2.0/24
+      AvailabilityZone: !Select [1, !GetAZs ""]
+      MapPublicIpOnLaunch: false
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-private-b"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  PrivateRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref DatabaseVpc
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-private-rt"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  PrivateSubnetARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetA
+
+  PrivateSubnetBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PrivateRouteTable
+      SubnetId: !Ref PrivateSubnetB
+
+  AuroraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Aurora privado para acceso mediante RDS Data API; sin ingress de red.
+      VpcId: !Ref DatabaseVpc
+      SecurityGroupIngress: []
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-aurora-sg"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  AuroraDbSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Subredes privadas para Aurora PostgreSQL de Proyecto Grado.
+      DBSubnetGroupName: !Sub "proyecto-grado-db-${EnvironmentName}-subnets"
+      SubnetIds:
+        - !Ref PrivateSubnetA
+        - !Ref PrivateSubnetB
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-subnets"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  AuroraDbCluster:
+    Type: AWS::RDS::DBCluster
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBClusterIdentifier: !Sub "proyecto-grado-db-${EnvironmentName}"
+      Engine: aurora-postgresql
+      EngineMode: provisioned
+      EngineVersion: !Ref EngineVersion
+      DatabaseName: !Ref DatabaseName
+      MasterUsername: !Ref MasterUsername
+      ManageMasterUserPassword: true
+      MasterUserAuthenticationType: password
+      EnableIAMDatabaseAuthentication: true
+      EnableHttpEndpoint: true
+      StorageEncrypted: true
+      StorageType: aurora
+      BackupRetentionPeriod: !Ref BackupRetentionPeriod
+      DeletionProtection: false
+      DeleteAutomatedBackups: true
+      CopyTagsToSnapshot: true
+      DBSubnetGroupName: !Ref AuroraDbSubnetGroup
+      VpcSecurityGroupIds:
+        - !Ref AuroraSecurityGroup
+      Port: 5432
+      ServerlessV2ScalingConfiguration:
+        MinCapacity: !Ref MinCapacity
+        MaxCapacity: !Ref MaxCapacity
+        SecondsUntilAutoPause: !Ref SecondsUntilAutoPause
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+  AuroraWriterInstance:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      DBInstanceIdentifier: !Sub "proyecto-grado-db-${EnvironmentName}-writer"
+      Engine: aurora-postgresql
+      DBClusterIdentifier: !Ref AuroraDbCluster
+      DBInstanceClass: db.serverless
+      PubliclyAccessible: false
+      AutoMinorVersionUpgrade: true
+      EnablePerformanceInsights: false
+      MonitoringInterval: 0
+      Tags:
+        - {Key: Name, Value: !Sub "proyecto-grado-db-${EnvironmentName}-writer"}
+        - {Key: Project, Value: proyecto-grado}
+        - {Key: Environment, Value: !Ref EnvironmentName}
+        - {Key: ManagedBy, Value: cloudformation}
+        - {Key: Component, Value: database}
+
+Outputs:
+  DbClusterIdentifier:
+    Description: Identificador del clúster Aurora.
+    Value: !Ref AuroraDbCluster
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbClusterIdentifier"}
+  DbClusterArn:
+    Description: ARN del clúster para llamadas a RDS Data API.
+    Value: !GetAtt AuroraDbCluster.DBClusterArn
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbClusterArn"}
+  DbClusterResourceId:
+    Description: Identificador inmutable del recurso de clúster.
+    Value: !GetAtt AuroraDbCluster.DBClusterResourceId
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbClusterResourceId"}
+  DbWriterEndpoint:
+    Description: Endpoint privado writer; se exporta para uso futuro, no para acceso público.
+    Value: !GetAtt AuroraDbCluster.Endpoint.Address
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbWriterEndpoint"}
+  DbPort:
+    Description: Puerto PostgreSQL.
+    Value: !GetAtt AuroraDbCluster.Endpoint.Port
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbPort"}
+  DatabaseName:
+    Description: Base de datos inicial.
+    Value: !Ref DatabaseName
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DatabaseName"}
+  DbSecretArn:
+    Description: ARN del secreto administrado por RDS; no contiene la contraseña en el output.
+    Value: !GetAtt AuroraDbCluster.MasterUserSecret.SecretArn
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbSecretArn"}
+  DbVpcId:
+    Description: VPC privada de la base.
+    Value: !Ref DatabaseVpc
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbVpcId"}
+  DbSecurityGroupId:
+    Description: Security Group privado de Aurora.
+    Value: !Ref AuroraSecurityGroup
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbSecurityGroupId"}
+  DbSubnetGroupName:
+    Description: Nombre del DB subnet group.
+    Value: !Ref AuroraDbSubnetGroup
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DbSubnetGroupName"}
+  DataApiEnabled:
+    Description: Indica que el endpoint HTTP de RDS Data API está habilitado.
+    Value: "true"
+    Export: {Name: !Sub "proyecto-grado-${EnvironmentName}-DataApiEnabled"}
