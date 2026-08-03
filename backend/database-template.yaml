@@ -157,7 +157,7 @@ Resources:
       MasterUsername: !Ref MasterUsername
       ManageMasterUserPassword: true
       MasterUserAuthenticationType: password
-      EnableIAMDatabaseAuthentication: true
+      EnableIAMDatabaseAuthentication: false
       EnableHttpEndpoint: true
       StorageEncrypted: true
       StorageType: aurora
