@@ -30,6 +30,31 @@ Resources:
     Properties:
       CodeUri: functions/usuarios/
       Handler: app.lambda_handler
+      Environment:
+        Variables:
+          DB_CLUSTER_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+          DB_SECRET_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbSecretArn
+          DB_NAME:
+            Fn::ImportValue: proyecto-grado-dev-DatabaseName
+      Policies:
+        - Statement:
+            - Sid: ExecuteAuroraDataApiStatements
+              Effect: Allow
+              Action:
+                - rds-data:ExecuteStatement
+                - rds-data:BatchExecuteStatement
+                - rds-data:BeginTransaction
+                - rds-data:CommitTransaction
+                - rds-data:RollbackTransaction
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+            - Sid: ReadAuroraManagedSecret
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbSecretArn
       Events:
         Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios/health, Method: GET}}
         List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios, Method: GET}}

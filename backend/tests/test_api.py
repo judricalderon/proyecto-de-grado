@@ -29,7 +29,26 @@ def call(app,method,path,body=None,params=None,query=None):
     return result["statusCode"], json.loads(result["body"]) if result.get("body") else None
 
 class UsuariosTest(unittest.TestCase):
-    def setUp(self):self.app,self.repo=load("usuarios")
+    def setUp(self):
+        self.app,self.repo=load("usuarios")
+        items = [
+            {"id":"USR-001","nombre":"Ana Estudiante","correo":"ana@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"2026-07-28T19:00:00Z","fecha_ultimo_acceso":None}
+        ]
+        self.repo.all = lambda: items
+        self.repo.get = lambda item_id: next((x for x in items if x["id"] == item_id), None)
+        def add(item):
+            if any(x["correo"] == item["correo"] for x in items): raise self.repo.DuplicateEmailError()
+            items.append(item); return item
+        def update(item_id, values):
+            item=self.repo.get(item_id)
+            if not item:return None
+            if "correo" in values and any(x["correo"] == values["correo"] and x["id"] != item_id for x in items):raise self.repo.DuplicateEmailError()
+            item.update(values);return item
+        def deactivate(item_id):
+            item=self.repo.get(item_id)
+            if item:item["estado"]="INACTIVO"
+            return item
+        self.repo.add=add;self.repo.update=update;self.repo.deactivate=deactivate
     def test_crud_filtro_y_desactivacion(self):
         status,created=call(self.app,"POST","/usuarios",{"nombre":"Nuevo Usuario","correo":"nuevo@example.com","tipo_usuario":"ESTUDIANTE"})
         self.assertEqual(status,201);uid=created["data"]["id"]
