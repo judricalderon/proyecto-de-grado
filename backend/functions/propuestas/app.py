@@ -1,6 +1,6 @@
 import json
 from pydantic import ValidationError
-import repository as r, service
+import service
 def response(s,b): return {"statusCode":s,"headers":{"Content-Type":"application/json"},"body":json.dumps(b,ensure_ascii=False)}
 def payload(e):
  try: return json.loads(e.get("body")) if isinstance(e.get("body"),str) else e.get("body")
@@ -18,12 +18,13 @@ def lambda_handler(event,context):
   q=event.get("pathParameters") or {}
   if method=="GET" and path=="/propuestas/health": return response(200,{"message":"Servicio de propuestas funcionando","service":"propuestas","status":"ok"})
   if path=="/propuestas":
-   if method=="GET": return response(200,{"data":r.propuestas,"count":len(r.propuestas)})
+   if method=="GET":
+    data=service.list_proposals();return response(200,{"data":data,"count":len(data)})
    if method=="POST": return response(201,{"message":"Propuesta creada correctamente","data":service.create(payload(event))})
   pid=q.get("id") or q.get("id_propuesta")
   if path.endswith("/estudiantes"):
    if method=="GET":
-    service.proposal(pid); data=[x for x in r.estudiantes if x["id_propuesta"]==pid];return response(200,{"data":data,"count":len(data)})
+    data=service.students(pid);return response(200,{"data":data,"count":len(data)})
    if method=="POST": return response(201,{"message":"Estudiante asignado correctamente","data":service.add_student(pid,payload(event))})
   if "/estudiantes/" in path and method=="DELETE": service.remove_student(pid,q.get("id_estudiante"));return response(200,{"data":{"removed":True}})
   if path.endswith("/director"):

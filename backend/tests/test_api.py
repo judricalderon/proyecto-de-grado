@@ -32,10 +32,19 @@ class UsuariosTest(unittest.TestCase):
     def setUp(self):
         self.app,self.repo=load("usuarios")
         items = [
-            {"id":"USR-001","nombre":"Ana Estudiante","correo":"ana@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"2026-07-28T19:00:00Z","fecha_ultimo_acceso":None}
+            {"id":"USR-001","nombre":"Ana Estudiante","correo":"ana@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"2026-07-28T19:00:00Z","fecha_ultimo_acceso":None},
+            {"id":"USR-002","nombre":"Estudiante Sin Propuesta","correo":"sin@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"2026-07-28T19:00:00Z","fecha_ultimo_acceso":None},
+            {"id":"USR-010","nombre":"Diego Docente","correo":"diego@example.com","tipo_usuario":"DOCENTE","estado":"ACTIVO","fecha_creacion":"2026-07-28T19:00:00Z","fecha_ultimo_acceso":None}
         ]
-        self.repo.all = lambda: items
+        def all_items(filters=None):
+            result=list(items);filters=filters or {}
+            if filters.get("correo"):result=[x for x in result if x["correo"].lower()==filters["correo"].lower()]
+            for key in ("tipo_usuario","estado"):
+                if filters.get(key):result=[x for x in result if x[key]==filters[key]]
+            return result
+        self.repo.all = all_items
         self.repo.get = lambda item_id: next((x for x in items if x["id"] == item_id), None)
+        self.repo.proposals_for_student=lambda item_id:([{"id":"PROP-001","titulo_tentativo":"Propuesta","descripcion_inicial":"Descripción extensa","estado_general":"BORRADOR","fecha_creacion":"2026-01-01T00:00:00Z","fecha_actualizacion":"2026-01-01T00:00:00Z"}] if item_id=="USR-001" else [])
         def add(item):
             if any(x["correo"] == item["correo"] for x in items): raise self.repo.DuplicateEmailError()
             items.append(item); return item
@@ -65,9 +74,57 @@ class UsuariosTest(unittest.TestCase):
         self.assertEqual(call(self.app,"GET","/desconocida")[0],404)
         with patch.object(self.app.service,"list_items",side_effect=RuntimeError("interno")):
             self.assertEqual(call(self.app,"GET","/usuarios")[0],500)
+    def test_filtros_correo_y_propuestas_estudiante(self):
+        self.assertEqual(call(self.app,"GET","/usuarios",query={"correo":"ANA@EXAMPLE.COM"})[1]["count"],1)
+        self.assertEqual(call(self.app,"GET","/usuarios",query={"correo":"missing@example.com"})[1]["count"],0)
+        self.assertEqual(call(self.app,"GET","/usuarios",query={"correo":"ana@example.com","estado":"ACTIVO"})[1]["count"],1)
+        self.assertEqual(call(self.app,"GET","/usuarios",query={"correo":"ana@example.com","tipo_usuario":"DOCENTE"})[1]["count"],0)
+        status,result=call(self.app,"GET","/usuarios/USR-001/propuestas",params={"usuarioId":"USR-001"})
+        self.assertEqual(status,200);self.assertEqual(result["count"],1)
+        self.assertEqual(call(self.app,"GET","/usuarios/USR-002/propuestas",params={"usuarioId":"USR-002"})[1]["count"],0)
+        self.assertEqual(call(self.app,"GET","/usuarios/NO/propuestas",params={"usuarioId":"NO"})[1]["code"],"USER_NOT_FOUND")
+        self.assertEqual(call(self.app,"GET","/usuarios/USR-010/propuestas",params={"usuarioId":"USR-010"})[1]["code"],"INVALID_USER_TYPE")
 
 class PropuestasTest(unittest.TestCase):
-    def setUp(self):self.app,self.repo=load("propuestas")
+    def setUp(self):
+        self.app,self.repo=load("propuestas")
+        proposals=[{"id":"PROP-001","titulo_tentativo":"Sistema de acompañamiento","descripcion_inicial":"Descripción suficientemente larga","estado_general":"BORRADOR","fecha_creacion":"2026-07-28T19:00:00Z","fecha_actualizacion":"2026-07-28T19:00:00Z"}]
+        students=[{"id":"REL-001","id_propuesta":"PROP-001","id_estudiante":"USR-001"}]
+        directors=[]
+        users={"USR-001":{"id":"USR-001","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO"},"USR-002":{"id":"USR-002","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO"},"USR-010":{"id":"USR-010","tipo_usuario":"DOCENTE","estado":"ACTIVO"},"USR-X":{"id":"USR-X","tipo_usuario":"ESTUDIANTE","estado":"INACTIVO"},"DOC-X":{"id":"DOC-X","tipo_usuario":"DOCENTE","estado":"INACTIVO"}}
+        self.repo.all_proposals=lambda:proposals
+        self.repo.get_proposal=lambda pid:next((x for x in proposals if x["id"]==pid),None)
+        self.repo.add_proposal=lambda item:(proposals.append(item) or item)
+        def update_proposal(pid,values,stamp):
+            item=self.repo.get_proposal(pid)
+            if item:item.update(values);item["fecha_actualizacion"]=stamp
+            return item
+        self.repo.update_proposal=update_proposal
+        self.repo.close_proposal=lambda pid,stamp:update_proposal(pid,{"estado_general":"CERRADA"},stamp)
+        self.repo.get_user=lambda uid:users.get(uid)
+        self.repo.list_students=lambda pid:[users[x["id_estudiante"]] for x in students if x["id_propuesta"]==pid]
+        def add_student(item):
+            if any(x["id_propuesta"]==item["id_propuesta"] and x["id_estudiante"]==item["id_estudiante"] for x in students):raise self.repo.DuplicateStudentError()
+            students.append(item);return item
+        def remove_student(pid,uid):
+            relation=next((x for x in students if x["id_propuesta"]==pid and x["id_estudiante"]==uid),None)
+            if not relation:raise self.repo.AssignmentNotFoundError()
+            proposal=self.repo.get_proposal(pid)
+            if len([x for x in students if x["id_propuesta"]==pid])==1 and proposal["estado_general"]!="BORRADOR":raise self.repo.LastStudentRequiredError()
+            students.remove(relation)
+        self.repo.add_student=add_student;self.repo.remove_student=remove_student
+        def active_director(pid):
+            relation=next((x for x in directors if x["id_propuesta"]==pid and x["estado"]=="ACTIVO"),None)
+            return users.get(relation["id_docente"]) if relation else None
+        self.repo.get_active_director=active_director
+        def add_director(item):
+            if active_director(item["id_propuesta"]):raise self.repo.ActiveDirectorError()
+            directors.append(item);return item
+        def deactivate_director(pid):
+            item=next((x for x in directors if x["id_propuesta"]==pid and x["estado"]=="ACTIVO"),None)
+            if item:item["estado"]="INACTIVO"
+            return item
+        self.repo.add_director=add_director;self.repo.deactivate_director=deactivate_director
     def test_compatibilidad_crud(self):
         status,created=call(self.app,"POST","/propuestas",{"titulo":"Nueva propuesta","descripcion":"Descripción suficientemente larga","estudianteId":"USR-001"})
         self.assertEqual(status,201);pid=created["data"]["id"]
@@ -82,11 +139,27 @@ class PropuestasTest(unittest.TestCase):
         self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/director",{"id_docente":"USR-010"},{"id_propuesta":"PROP-001"})[0],201)
         self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/director",{"id_docente":"USR-010"},{"id_propuesta":"PROP-001"})[0],409)
         self.assertEqual(call(self.app,"DELETE","/propuestas/PROP-001/director",params={"id_propuesta":"PROP-001"})[1]["data"]["estado"],"INACTIVO")
+    def test_lecturas_devuelven_perfiles(self):
+        params={"id_propuesta":"PROP-001"}
+        students_result=call(self.app,"GET","/propuestas/PROP-001/estudiantes",params=params)[1]
+        self.assertEqual(students_result["data"][0]["id"],"USR-001")
+        self.assertNotIn("id_propuesta",students_result["data"][0])
+        self.assertIsNone(call(self.app,"GET","/propuestas/PROP-001/director",params=params)[1]["data"])
+        call(self.app,"POST","/propuestas/PROP-001/director",{"id_docente":"USR-010"},params)
+        director=call(self.app,"GET","/propuestas/PROP-001/director",params=params)[1]["data"]
+        self.assertEqual(director["id"],"USR-010");self.assertEqual(director["tipo_usuario"],"DOCENTE")
     def test_inexistente_invalido_json_y_ruta(self):
         self.assertEqual(call(self.app,"GET","/propuestas/X",params={"id":"X"})[0],404)
         self.assertEqual(call(self.app,"POST","/propuestas",{"titulo":"a","descripcion":"b"})[0],400)
         self.assertEqual(call(self.app,"POST","/propuestas","{")[0],400)
         self.assertEqual(call(self.app,"GET","/otra")[0],404)
+    def test_usuarios_invalidos_e_inactivos(self):
+        params={"id_propuesta":"PROP-001"}
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/estudiantes",{"id_estudiante":"NO-EXISTE"},params)[1]["code"],"USER_NOT_FOUND")
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/estudiantes",{"id_estudiante":"USR-010"},params)[1]["code"],"INVALID_USER_TYPE")
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/estudiantes",{"id_estudiante":"USR-X"},params)[1]["code"],"USER_INACTIVE")
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/director",{"id_docente":"USR-001"},params)[1]["code"],"INVALID_USER_TYPE")
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/director",{"id_docente":"DOC-X"},params)[1]["code"],"USER_INACTIVE")
 
 class CatalogosTest(unittest.TestCase):
     def setUp(self):self.app,self.repo=load("catalogos")

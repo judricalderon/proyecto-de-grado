@@ -59,6 +59,7 @@ Resources:
         Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios/health, Method: GET}}
         List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios, Method: GET}}
         Get: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{id}", Method: GET}}
+        StudentProposals: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{usuarioId}/propuestas", Method: GET}}
         Create: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /usuarios, Method: POST}}
         Update: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{id}", Method: PUT}}
         Delete: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/usuarios/{id}", Method: DELETE}}
@@ -68,6 +69,31 @@ Resources:
     Properties:
       CodeUri: functions/propuestas/
       Handler: app.lambda_handler
+      Environment:
+        Variables:
+          DB_CLUSTER_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+          DB_SECRET_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbSecretArn
+          DB_NAME:
+            Fn::ImportValue: proyecto-grado-dev-DatabaseName
+      Policies:
+        - Statement:
+            - Sid: ExecuteAuroraDataApiStatements
+              Effect: Allow
+              Action:
+                - rds-data:ExecuteStatement
+                - rds-data:BatchExecuteStatement
+                - rds-data:BeginTransaction
+                - rds-data:CommitTransaction
+                - rds-data:RollbackTransaction
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+            - Sid: ReadAuroraManagedSecret
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbSecretArn
       Events:
         Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /propuestas/health, Method: GET}}
         List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /propuestas, Method: GET}}

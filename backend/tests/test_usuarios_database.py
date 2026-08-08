@@ -63,6 +63,18 @@ class UsuariosDatabaseTest(unittest.TestCase):
         with patch.object(self.repository.database, "execute_statement", return_value=empty):
             self.assertIsNone(self.repository.get("missing"))
 
+    def test_email_filters_and_student_proposals_use_sql_parameters(self):
+        empty={"columnMetadata":[],"records":[]}
+        with patch.object(self.repository.database,"execute_statement",return_value=empty) as execute:
+            self.assertEqual(self.repository.all({"correo":"Student@crea.local","estado":"ACTIVO","tipo_usuario":"ESTUDIANTE"}),[])
+            sql,parameters=execute.call_args.args
+            self.assertIn("lower(correo) = lower(:correo)",sql)
+            self.assertEqual(parameters,{"correo":"Student@crea.local","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO"})
+            self.assertEqual(self.repository.proposals_for_student("USR-1"),[])
+            sql,parameters=execute.call_args.args
+            self.assertIn("JOIN propuesta_estudiante",sql);self.assertIn("JOIN propuesta_proyecto",sql)
+            self.assertEqual(parameters,{"id":"USR-1"})
+
     def test_duplicate_email_and_unexpected_data_api_error(self):
         with patch.object(self.repository.database, "execute_write", return_value=0):
             with self.assertRaises(self.repository.DuplicateEmailError):

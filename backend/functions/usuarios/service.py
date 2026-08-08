@@ -19,11 +19,7 @@ def now():
 
 
 def list_items(filters):
-    items = repository.all()
-    for key in ("tipo_usuario", "estado"):
-        if filters.get(key):
-            items = [item for item in items if item[key] == filters[key]]
-    return items
+    return repository.all(filters)
 
 
 def get_item(item_id):
@@ -31,6 +27,13 @@ def get_item(item_id):
     if not item:
         raise DomainError("Usuario no encontrado", "USER_NOT_FOUND", 404)
     return item
+
+
+def student_proposals(item_id):
+    item = get_item(item_id)
+    if item["tipo_usuario"] != "ESTUDIANTE":
+        raise DomainError("Tipo de usuario inválido", "INVALID_USER_TYPE", 409)
+    return repository.proposals_for_student(item_id)
 
 
 def create(data):
