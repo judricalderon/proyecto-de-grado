@@ -1,8 +1,14 @@
 import os
+import time
 from datetime import date, datetime
 from decimal import Decimal
 
 import boto3
+from botocore.exceptions import ClientError
+
+
+MAX_EXECUTE_ATTEMPTS = 3
+RESUME_RETRY_DELAY_SECONDS = 0.5
 
 
 class DatabaseConfigurationError(RuntimeError):
@@ -80,7 +86,15 @@ def execute_statement(sql, parameters=None, transaction_id=None):
     }
     if transaction_id:
         request["transactionId"] = transaction_id
-    return boto3.client("rds-data").execute_statement(**request)
+    client = boto3.client("rds-data")
+    for attempt in range(MAX_EXECUTE_ATTEMPTS):
+        try:
+            return client.execute_statement(**request)
+        except ClientError as error:
+            code = error.response.get("Error", {}).get("Code")
+            if code != "DatabaseResumingException" or attempt == MAX_EXECUTE_ATTEMPTS - 1:
+                raise
+            time.sleep(RESUME_RETRY_DELAY_SECONDS * (2 ** attempt))
 
 
 def execute_write(sql, parameters=None, transaction_id=None):
