@@ -122,5 +122,13 @@ class PropuestasDatabaseRetryTest(DatabaseRetryContract, unittest.TestCase):
     domain = "propuestas"
 
 
+class CatalogosDatabaseRetryTest(DatabaseRetryContract, unittest.TestCase):
+    domain = "catalogos"
+
+
+class ProgresoDatabaseRetryTest(DatabaseRetryContract, unittest.TestCase):
+    domain = "progreso"
+
+
 if __name__ == "__main__":
     unittest.main()

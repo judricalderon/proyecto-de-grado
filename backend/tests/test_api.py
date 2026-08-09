@@ -8,7 +8,7 @@ from unittest.mock import patch
 FUNCTIONS = Path(__file__).resolve().parents[1] / "functions"
 
 def load(domain):
-    for name in ("app", "service", "repository", "models"):
+    for name in ("app", "service", "repository", "models", "database"):
         sys.modules.pop(name, None)
     path = str(FUNCTIONS / domain)
     sys.path.insert(0, path)
@@ -162,7 +162,22 @@ class PropuestasTest(unittest.TestCase):
         self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/director",{"id_docente":"DOC-X"},params)[1]["code"],"USER_INACTIVE")
 
 class CatalogosTest(unittest.TestCase):
-    def setUp(self):self.app,self.repo=load("catalogos")
+    def setUp(self):
+        self.app,self.repo=load("catalogos")
+        modules=[{"id":"MOD-001","nombre":"Desarrollo de propuestas de proyectos","descripcion":"Módulo inicial","orden":1,"activo":True}]
+        phases=[{"id":f"FASE-{i:03}","id_modulo":"MOD-001","nombre":f"Fase {i}","descripcion":f"Fase {i}","orden":i,"activo":True} for i in range(1,8)]
+        agents=[];collections={"modulos":modules,"fases":phases,"agentes":agents}
+        self.repo.list_items=lambda kind,module_id=None:[x for x in collections[kind] if module_id is None or x.get("id_modulo")==module_id]
+        self.repo.get=lambda kind,item_id:next((x for x in collections[kind] if x["id"]==item_id),None)
+        self.repo.active_order_exists=lambda kind,order,module_id=None,exclude_id=None:any(x["activo"] and x["orden"]==order and x["id"]!=exclude_id and (kind!="fases" or x["id_modulo"]==module_id) for x in collections[kind])
+        self.repo.active_agent_name_exists=lambda name,exclude_id=None:any(x["activo"] and x["nombre"].lower()==name.lower() and x["id"]!=exclude_id for x in agents)
+        self.repo.module_has_active_phases=lambda module_id:any(x["activo"] and x["id_modulo"]==module_id for x in phases)
+        def add(kind,item):collections[kind].append(item);return item
+        def update(kind,item_id,values):
+            item=self.repo.get(kind,item_id)
+            if item:item.update(values)
+            return item
+        self.repo.add=add;self.repo.update=update;self.repo.deactivate=lambda kind,item_id:update(kind,item_id,{"activo":False})
     def test_modulo_conflicto_y_desactivacion(self):
         self.assertEqual(call(self.app,"POST","/modulos",{"nombre":"Duplicado","descripcion":"D","orden":1})[0],409)
         status,x=call(self.app,"POST","/modulos",{"nombre":"Segundo","descripcion":"D","orden":2});self.assertEqual(status,201)
@@ -174,9 +189,36 @@ class CatalogosTest(unittest.TestCase):
         agent={"nombre":"Orientador","tipo_agente":"ORIENTADOR","descripcion":"Guía"}
         self.assertEqual(call(self.app,"POST","/agentes",agent)[0],201)
         self.assertEqual(call(self.app,"POST","/agentes",agent)[0],409)
+    def test_listar_obtener_actualizar_y_desactivar_fase_agente(self):
+        self.assertEqual(call(self.app,"GET","/modulos")[1]["count"],1)
+        self.assertEqual(call(self.app,"GET","/modulos/MOD-001",params={"id":"MOD-001"})[0],200)
+        self.assertEqual(call(self.app,"GET","/modulos/MOD-001/fases",params={"id_modulo":"MOD-001"})[1]["count"],7)
+        self.assertEqual(call(self.app,"GET","/fases/NO",params={"id":"NO"})[0],404)
+        created=call(self.app,"POST","/fases",{"id_modulo":"MOD-001","nombre":"Cierre","descripcion":"D","orden":8})[1]["data"]
+        self.assertTrue(created["id"].startswith("FASE-"))
+        self.assertEqual(call(self.app,"PUT",f"/fases/{created['id']}",{"descripcion":"Editada"},{"id":created["id"]})[1]["data"]["descripcion"],"Editada")
+        self.assertFalse(call(self.app,"DELETE",f"/fases/{created['id']}",params={"id":created["id"]})[1]["data"]["activo"])
+        self.assertEqual(call(self.app,"POST","/fases",{"id_modulo":"NO","nombre":"X","descripcion":"D","orden":1})[1]["code"],"MODULE_NOT_ACTIVE")
+        agent=call(self.app,"POST","/agentes",{"nombre":"Evaluador","tipo_agente":"EVALUADOR","descripcion":"D"})[1]["data"]
+        self.assertEqual(call(self.app,"PUT",f"/agentes/{agent['id']}",{"descripcion":"Editado"},{"id":agent["id"]})[0],200)
+        self.assertFalse(call(self.app,"DELETE",f"/agentes/{agent['id']}",params={"id":agent["id"]})[1]["data"]["activo"])
+        self.assertEqual(call(self.app,"POST","/agentes",{"nombre":"Inválido","tipo_agente":"OTRO","descripcion":"D"})[0],400)
 
 class ProgresoTest(unittest.TestCase):
-    def setUp(self):self.app,self.repo=load("progreso")
+    def setUp(self):
+        self.app,self.repo=load("progreso");items=[];proposals={"PROP-001"};phases={f"FASE-{i:03}":{"id":f"FASE-{i:03}","activo":True} for i in range(1,8)};phases["FASE-X"]={"id":"FASE-X","activo":False}
+        self.repo.list_by_proposal=lambda pid:[x for x in items if x["id_propuesta"]==pid]
+        self.repo.get=lambda pid,fid:next((x for x in items if x["id_propuesta"]==pid and x["id_fase"]==fid),None)
+        self.repo.proposal_exists=lambda pid:pid in proposals
+        self.repo.get_phase=lambda fid:phases.get(fid)
+        def add(item):
+            if self.repo.get(item["id_propuesta"],item["id_fase"]):raise self.repo.DuplicateProgressError()
+            items.append(item);return item
+        def update(pid,fid,values):
+            item=self.repo.get(pid,fid)
+            if item:item.update(values)
+            return item
+        self.repo.add=add;self.repo.update=update
     def test_crear_actualizar_y_validar(self):
         base={"id_fase":"FASE-001","estado":"NO_INICIADA","porcentaje_avance":0}
         self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/progreso",base,{"id_propuesta":"PROP-001"})[0],201)
@@ -185,6 +227,20 @@ class ProgresoTest(unittest.TestCase):
         self.assertEqual(call(self.app,"PUT","/propuestas/PROP-001/progreso/FASE-001",{"estado":"NO_INICIADA","porcentaje_avance":0},{"id_propuesta":"PROP-001","id_fase":"FASE-001"})[0],409)
         self.assertEqual(call(self.app,"PUT","/propuestas/PROP-001/progreso/FASE-001",{"estado":"EN_PROGRESO","porcentaje_avance":100},{"id_propuesta":"PROP-001","id_fase":"FASE-001"})[0],400)
         self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/progreso",{"id_fase":"FASE-002","estado":"COMPLETADA","porcentaje_avance":50},{"id_propuesta":"PROP-001"})[0],400)
+    def test_listar_referencias_fechas_e_inexistentes(self):
+        no_iniciada={"id_fase":"FASE-001","estado":"NO_INICIADA","porcentaje_avance":0};params={"id_propuesta":"PROP-001"}
+        created=call(self.app,"POST","/propuestas/PROP-001/progreso",no_iniciada,params)[1]["data"]
+        self.assertIsNone(created["fecha_inicio"]);self.assertIsNone(created["fecha_cierre"])
+        self.assertEqual(call(self.app,"GET","/propuestas/PROP-001/progreso",params=params)[1]["count"],1)
+        self.assertEqual(call(self.app,"GET","/propuestas/PROP-001/progreso/FASE-001",params={**params,"id_fase":"FASE-001"})[0],200)
+        self.assertEqual(call(self.app,"GET","/propuestas/PROP-001/progreso/FASE-002",params={**params,"id_fase":"FASE-002"})[1]["code"],"PROGRESS_NOT_FOUND")
+        self.assertEqual(call(self.app,"POST","/propuestas/NO/progreso",no_iniciada,{"id_propuesta":"NO"})[1]["code"],"PROPOSAL_NOT_FOUND")
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/progreso",{"id_fase":"NO","estado":"NO_INICIADA","porcentaje_avance":0},params)[1]["code"],"PHASE_NOT_FOUND")
+        self.assertEqual(call(self.app,"POST","/propuestas/PROP-001/progreso",{"id_fase":"FASE-X","estado":"NO_INICIADA","porcentaje_avance":0},params)[1]["code"],"PHASE_NOT_FOUND")
+        progressing=call(self.app,"POST","/propuestas/PROP-001/progreso",{"id_fase":"FASE-002","estado":"EN_PROGRESO","porcentaje_avance":50},params)[1]["data"]
+        self.assertIsNotNone(progressing["fecha_inicio"])
+        completed=call(self.app,"POST","/propuestas/PROP-001/progreso",{"id_fase":"FASE-003","estado":"COMPLETADA","porcentaje_avance":100},params)[1]["data"]
+        self.assertIsNotNone(completed["fecha_inicio"]);self.assertIsNotNone(completed["fecha_cierre"])
 
 class EvaluacionesDocumentosTest(unittest.TestCase):
     def test_evaluacion_mas_reciente(self):

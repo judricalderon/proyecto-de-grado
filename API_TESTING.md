@@ -11,7 +11,7 @@ Documento derivado de `backend/template.yaml`, los adaptadores Lambda, modelos P
 - Error inesperado: `{"error":"Error interno del servidor","code":"INTERNAL_SERVER_ERROR","details":[]}` (500).
 - Los IDs generados por servicios usan UUID v4, salvo catálogos, que anteponen `MOD-`, `FASE-` o `AG-`. Los modelos que reciben IDs los declaran como `str`; no aplican validación de formato UUID.
 - Fechas de salida son generadas por el servicio en UTC, ISO 8601 con sufijo `Z`; no son campos de entrada.
-- Usuarios y Propuestas persisten en Aurora PostgreSQL mediante RDS Data API. Catálogos, Progreso, Evaluaciones y Documentos continúan temporalmente con mocks.
+- Usuarios, Propuestas, Catálogos y Progreso persisten en Aurora PostgreSQL mediante RDS Data API. Evaluaciones y Documentos continúan temporalmente con mocks.
 
 ## Esquemas Pydantic reales
 
@@ -137,10 +137,10 @@ No existe PUT ni DELETE para evaluaciones.
 1. Crear usuario y guardar `usuarioId`.
 2. Crear propuesta y guardar `propuestaId`.
 3. Crear módulo, fase y agente; guardar sus IDs.
-4. Crear progreso usando una propuesta/fase que exista en el mock de esa Lambda (`PROP-001`, `FASE-001` inicialmente).
+4. Crear progreso usando una propuesta y una fase activa que existan en PostgreSQL.
 5. Crear evaluación y documento usando las mismas referencias mock.
 
-Por la separación de repositorios mock, crear una propuesta en `PropuestasFunction` no la crea dentro de `ProgresoFunction`, `EvaluacionesFunction` o `DocumentosFunction`. Para esos dominios, el código actual reconoce `PROP-001`; esto cambiará al usar persistencia compartida.
+Propuestas y Progreso comparten ahora las referencias persistidas en PostgreSQL. Evaluaciones y Documentos continúan temporalmente con referencias mock aisladas.
 
 ## Colección Postman
 
