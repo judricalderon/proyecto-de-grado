@@ -11,7 +11,7 @@ Documento derivado de `backend/template.yaml`, los adaptadores Lambda, modelos P
 - Error inesperado: `{"error":"Error interno del servidor","code":"INTERNAL_SERVER_ERROR","details":[]}` (500).
 - Los IDs generados por servicios usan UUID v4, salvo catálogos, que anteponen `MOD-`, `FASE-` o `AG-`. Los modelos que reciben IDs los declaran como `str`; no aplican validación de formato UUID.
 - Fechas de salida son generadas por el servicio en UTC, ISO 8601 con sufijo `Z`; no son campos de entrada.
-- Usuarios, Propuestas, Catálogos y Progreso persisten en Aurora PostgreSQL mediante RDS Data API. Evaluaciones y Documentos continúan temporalmente con mocks.
+- Todos los dominios persisten en Aurora PostgreSQL mediante RDS Data API. Documentos administra exclusivamente metadata; no almacena archivos binarios.
 
 ## Esquemas Pydantic reales
 
@@ -130,7 +130,7 @@ No existe PUT ni DELETE para evaluaciones.
 | GET | `/documentos/{id}` | Lee metadato | `id`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"uuid","id_propuesta":"PROP-001","tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf","fecha_carga":"...Z"}}` | `DOCUMENT_NOT_FOUND` | 200/404 |
 | POST | `/propuestas/{id_propuesta}/documentos` | Crea metadato; no sube archivo | `id_propuesta`: string | Ninguno | `tipo_documento`, `nombre_archivo`, `ruta` | Ninguno | `{"tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf"}` | — | `{"message":"Documento creado correctamente","data":{"id":"uuid","id_propuesta":"PROP-001","tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf","fecha_carga":"...Z"}}` | `PROPOSAL_NOT_FOUND` o validación | 201/400/404 |
 | PUT | `/documentos/{id}` | Actualiza metadato | `id`: string | Ninguno | Ninguno | Campos de `DocumentoUpdate` | — | `{"nombre_archivo":"anexo-actualizado.pdf","tipo_documento":"INFORME"}` | `{"message":"Documento actualizado correctamente","data":{"id":"uuid","id_propuesta":"PROP-001","tipo_documento":"INFORME","nombre_archivo":"anexo-actualizado.pdf","ruta":"temporal/anexo.pdf","fecha_carga":"...Z"}}` | `DOCUMENT_NOT_FOUND`/validación | 200/400/404 |
-| DELETE | `/documentos/{id}` | Elimina metadato mock | `id`: string | Ninguno | Sin body | — | — | — | Sin body | `DOCUMENT_NOT_FOUND` | 204/404 |
+| DELETE | `/documentos/{id}` | Elimina físicamente el metadato | `id`: string | Ninguno | Sin body | — | — | — | Sin body | `DOCUMENT_NOT_FOUND` | 204/404 |
 
 ## Orden recomendado en Postman
 
@@ -138,9 +138,9 @@ No existe PUT ni DELETE para evaluaciones.
 2. Crear propuesta y guardar `propuestaId`.
 3. Crear módulo, fase y agente; guardar sus IDs.
 4. Crear progreso usando una propuesta y una fase activa que existan en PostgreSQL.
-5. Crear evaluación y documento usando las mismas referencias mock.
+5. Crear evaluación usando referencias existentes en PostgreSQL y documento usando sus referencias mock.
 
-Propuestas y Progreso comparten ahora las referencias persistidas en PostgreSQL. Evaluaciones y Documentos continúan temporalmente con referencias mock aisladas.
+Todos los dominios comparten ahora las referencias persistidas en PostgreSQL. Documentos conserva únicamente metadata; `ruta` continúa siendo un string y no implica almacenamiento S3.
 
 ## Colección Postman
 

@@ -2,7 +2,7 @@
   "info": {
     "_postman_id": "7ac4b981-ef9f-4aa1-919e-0136f2f8ed11",
     "name": "Proyecto Grado API",
-    "description": "Colección derivada del código AWS SAM. Usuarios y Propuestas usan Aurora PostgreSQL; los demás dominios continúan temporalmente con mocks.",
+    "description": "Colección derivada del código AWS SAM. Todos los dominios usan Aurora PostgreSQL mediante RDS Data API; Documentos administra metadata y no archivos binarios.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "variable": [

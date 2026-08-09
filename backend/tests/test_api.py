@@ -244,15 +244,53 @@ class ProgresoTest(unittest.TestCase):
 
 class EvaluacionesDocumentosTest(unittest.TestCase):
     def test_evaluacion_mas_reciente(self):
-        app,repo=load("evaluaciones");data={"nivel_claridad":5,"nivel_argumentacion":4,"nivel_coherencia":5,"fortalezas":"Claridad","aspectos_por_fortalecer":"Fuentes"};params={"id_propuesta":"PROP-001","id_fase":"FASE-001"}
-        self.assertEqual(call(app,"POST","/propuestas/PROP-001/fases/FASE-001/evaluaciones",data,params)[0],201)
+        app,repo=load("evaluaciones");items=[]
+        repo.proposal_exists=lambda pid:pid=="PROP-001"
+        repo.get_phase=lambda fid:{"id":fid,"activo":True} if fid=="FASE-001" else None
+        repo.list_by_proposal=lambda pid,fid=None:[x for x in items if x["id_propuesta"]==pid and (fid is None or x["id_fase"]==fid)]
+        repo.get=lambda item_id:next((x for x in items if x["id"]==item_id),None)
+        repo.latest=lambda pid,fid:max(repo.list_by_proposal(pid,fid),key=lambda x:x["fecha_evaluacion"],default=None)
+        repo.add=lambda item:items.append(item) or item
+        data={"nivel_claridad":5,"nivel_argumentacion":4,"nivel_coherencia":5,"fortalezas":"Claridad","aspectos_por_fortalecer":"Fuentes"};params={"id_propuesta":"PROP-001","id_fase":"FASE-001"}
+        created=call(app,"POST","/propuestas/PROP-001/fases/FASE-001/evaluaciones",data,params)
+        self.assertEqual(created[0],201);self.assertEqual(created[1]["data"]["observaciones"],"")
+        self.assertEqual(call(app,"GET",f"/evaluaciones/{created[1]['data']['id']}",params={"id":created[1]["data"]["id"]})[0],200)
+        minimum={**data,"nivel_claridad":1,"nivel_argumentacion":1,"nivel_coherencia":1}
+        self.assertEqual(call(app,"POST","/propuestas/PROP-001/fases/FASE-001/evaluaciones",minimum,params)[0],201)
         self.assertEqual(call(app,"GET","/propuestas/PROP-001/fases/FASE-001/evaluaciones/ultima",params=params)[0],200)
+        self.assertEqual(call(app,"GET","/propuestas/PROP-001/evaluaciones",params={"id_propuesta":"PROP-001"})[1]["count"],2)
+        self.assertEqual(call(app,"GET","/propuestas/PROP-001/fases/FASE-001/evaluaciones",params=params)[1]["count"],2)
+        self.assertEqual(call(app,"POST","/propuestas/NO/fases/FASE-001/evaluaciones",data,{"id_propuesta":"NO","id_fase":"FASE-001"})[1]["code"],"PROPOSAL_NOT_FOUND")
+        self.assertEqual(call(app,"POST","/propuestas/PROP-001/fases/NO/evaluaciones",data,{"id_propuesta":"PROP-001","id_fase":"NO"})[1]["code"],"PHASE_NOT_FOUND")
+        self.assertEqual(call(app,"POST","/propuestas/PROP-001/fases/FASE-001/evaluaciones",{**data,"nivel_claridad":0},params)[0],400)
         self.assertEqual(call(app,"POST","/propuestas/PROP-001/fases/FASE-001/evaluaciones",{**data,"nivel_claridad":6},params)[0],400)
     def test_documentos_metadatos(self):
-        app,repo=load("documentos");data={"tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf"};params={"id_propuesta":"PROP-001"}
+        app,repo=load("documentos");items=[]
+        repo.proposal_exists=lambda pid:pid=="PROP-001"
+        repo.list_by_proposal=lambda pid:[x for x in items if x["id_propuesta"]==pid]
+        repo.get=lambda item_id:next((x for x in items if x["id"]==item_id),None)
+        repo.add=lambda item:items.append(item) or item
+        def update(item_id,values):
+            item=repo.get(item_id)
+            if item:item.update(values)
+            return item
+        repo.update=update
+        def delete(item_id):
+            item=repo.get(item_id)
+            if item:items.remove(item)
+            return item
+        repo.delete=delete
+        data={"tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf"};params={"id_propuesta":"PROP-001"}
         status,x=call(app,"POST","/propuestas/PROP-001/documentos",data,params);self.assertEqual(status,201);did=x["data"]["id"]
+        self.assertEqual(call(app,"GET","/propuestas/PROP-001/documentos",params=params)[1]["count"],1)
         self.assertEqual(call(app,"GET",f"/documentos/{did}",params={"id":did})[0],200)
         self.assertEqual(call(app,"PUT",f"/documentos/{did}",{"nombre_archivo":"nuevo.pdf"},{"id":did})[0],200)
         self.assertEqual(call(app,"DELETE",f"/documentos/{did}",params={"id":did})[0],204)
+        self.assertEqual(call(app,"GET",f"/documentos/{did}",params={"id":did})[1]["code"],"DOCUMENT_NOT_FOUND")
+        self.assertEqual(call(app,"DELETE","/documentos/NO",params={"id":"NO"})[1]["code"],"DOCUMENT_NOT_FOUND")
+        self.assertEqual(call(app,"POST","/propuestas/NO/documentos",data,{"id_propuesta":"NO"})[1]["code"],"PROPOSAL_NOT_FOUND")
+        self.assertEqual(call(app,"POST","/propuestas/PROP-001/documentos",{**data,"tipo_documento":"INVALIDO"},params)[0],400)
+        for document_type in ("PROPUESTA","ACTA","ANEXO","INFORME","OTRO"):
+            self.assertEqual(call(app,"POST","/propuestas/PROP-001/documentos",{**data,"tipo_documento":document_type},params)[0],201)
 
 if __name__=="__main__":unittest.main()

@@ -2,7 +2,6 @@ import json
 
 from pydantic import ValidationError
 
-import repository as r
 import service
 
 
@@ -84,11 +83,7 @@ def lambda_handler(event, context):
 
         # GET /propuestas/{id_propuesta}/documentos
         if method == "GET" and path.endswith("/documentos"):
-            documents = [
-                item
-                for item in r.items
-                if item["id_propuesta"] == proposal_id
-            ]
+            documents = service.list_by_proposal(proposal_id)
 
             return out(
                 200,
@@ -175,14 +170,7 @@ def lambda_handler(event, context):
             },
         )
 
-    except Exception as error:
-        print(
-            {
-                "error": str(error),
-                "type": type(error).__name__,
-            }
-        )
-
+    except Exception:
         return out(
             500,
             {

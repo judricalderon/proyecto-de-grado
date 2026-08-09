@@ -198,6 +198,31 @@ Resources:
     Properties:
       CodeUri: functions/evaluaciones/
       Handler: app.lambda_handler
+      Environment:
+        Variables:
+          DB_CLUSTER_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+          DB_SECRET_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbSecretArn
+          DB_NAME:
+            Fn::ImportValue: proyecto-grado-dev-DatabaseName
+      Policies:
+        - Statement:
+            - Sid: ExecuteAuroraDataApiStatements
+              Effect: Allow
+              Action:
+                - rds-data:ExecuteStatement
+                - rds-data:BatchExecuteStatement
+                - rds-data:BeginTransaction
+                - rds-data:CommitTransaction
+                - rds-data:RollbackTransaction
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+            - Sid: ReadAuroraManagedSecret
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbSecretArn
       Events:
         Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /evaluaciones/health, Method: GET}}
         Proposal: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/evaluaciones", Method: GET}}
@@ -211,6 +236,31 @@ Resources:
     Properties:
       CodeUri: functions/documentos/
       Handler: app.lambda_handler
+      Environment:
+        Variables:
+          DB_CLUSTER_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+          DB_SECRET_ARN:
+            Fn::ImportValue: proyecto-grado-dev-DbSecretArn
+          DB_NAME:
+            Fn::ImportValue: proyecto-grado-dev-DatabaseName
+      Policies:
+        - Statement:
+            - Sid: ExecuteAuroraDataApiStatements
+              Effect: Allow
+              Action:
+                - rds-data:ExecuteStatement
+                - rds-data:BatchExecuteStatement
+                - rds-data:BeginTransaction
+                - rds-data:CommitTransaction
+                - rds-data:RollbackTransaction
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbClusterArn
+            - Sid: ReadAuroraManagedSecret
+              Effect: Allow
+              Action: secretsmanager:GetSecretValue
+              Resource:
+                Fn::ImportValue: proyecto-grado-dev-DbSecretArn
       Events:
         Health: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: /documentos/health, Method: GET}}
         List: {Type: HttpApi, Properties: {ApiId: !Ref ProyectoGradoApi, Path: "/propuestas/{id_propuesta}/documentos", Method: GET}}

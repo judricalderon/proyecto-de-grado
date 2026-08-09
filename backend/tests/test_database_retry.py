@@ -130,5 +130,13 @@ class ProgresoDatabaseRetryTest(DatabaseRetryContract, unittest.TestCase):
     domain = "progreso"
 
 
+class EvaluacionesDatabaseRetryTest(DatabaseRetryContract, unittest.TestCase):
+    domain = "evaluaciones"
+
+
+class DocumentosDatabaseRetryTest(DatabaseRetryContract, unittest.TestCase):
+    domain = "documentos"
+
+
 if __name__ == "__main__":
     unittest.main()
