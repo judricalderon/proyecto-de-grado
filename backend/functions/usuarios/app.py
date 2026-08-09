@@ -23,6 +23,8 @@ def lambda_handler(event, context):
         if path=="/usuarios" and method=="GET":
             data=service.list_items(query); return response(200,{"data":data,"count":len(data)})
         if path=="/usuarios" and method=="POST": return response(201,{"message":"Usuario creado correctamente","data":service.create(body(event))})
+        if method=="GET" and path.endswith("/propuestas") and path.startswith("/usuarios/"):
+            data=service.student_proposals(params.get("usuarioId")); return response(200,{"data":data,"count":len(data)})
         if path.startswith("/usuarios/"):
             item_id=params.get("id")
             if method=="GET": return response(200,{"data":service.get_item(item_id)})
@@ -31,4 +33,14 @@ def lambda_handler(event, context):
         return response(404,{"error":"Ruta no encontrada","code":"ROUTE_NOT_FOUND","details":[]})
     except ValidationError as error: return response(400,{"error":"Datos de entrada inválidos","code":"VALIDATION_ERROR","details":[x["msg"] for x in error.errors()]})
     except service.DomainError as error: return response(error.status,{"error":error.message,"code":error.code,"details":error.details})
-    except Exception: return response(500,{"error":"Error interno del servidor","code":"INTERNAL_SERVER_ERROR","details":[]})
+    except Exception as x:
+        print("UNHANDLED_ERROR:", repr(x))
+
+        return response(
+            500,
+            {
+                "error": "Error interno del servidor",
+                "code": "INTERNAL_SERVER_ERROR",
+                "details": [],
+            },
+        )

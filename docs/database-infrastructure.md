@@ -27,9 +27,9 @@ No existen Internet Gateway, NAT Gateway, Elastic IP, endpoints de VPC, bastion,
 
 Aurora Serverless v2 usa `EngineMode: provisioned`. Ese valor selecciona la arquitectura moderna con instancias `db.serverless` y `ServerlessV2ScalingConfiguration`; `EngineMode: serverless` corresponde a Serverless v1.
 
-La VPC no tiene NAT porque la base no necesita iniciar tráfico a Internet y el acceso previsto en esta fase es RDS Data API. Data API expone una API regional autenticada por IAM y usa el ARN del clúster y del secreto, sin abrir PostgreSQL 5432 a redes públicas. El Security Group no tiene reglas de entrada.
+La VPC no tiene NAT porque la base no necesita iniciar tráfico a Internet y el acceso previsto en esta fase es RDS Data API. Data API expone una API regional autorizada mediante permisos IAM para `rds-data` y Secrets Manager, y usa el ARN del clúster y del secreto sin abrir PostgreSQL 5432 a redes públicas. Esto no exige habilitar IAM Database Authentication dentro de PostgreSQL; `EnableIAMDatabaseAuthentication` permanece en `false`. El Security Group no tiene reglas de entrada.
 
-Las Lambdas todavía no importan Outputs ni reciben permisos `rds-data`/`secretsmanager`. Continúan usando mocks para evitar mezclar aprovisionamiento con la migración de persistencia. Esa integración debe realizarse en una fase posterior con permisos de mínimo privilegio.
+Las Lambdas todavía no importan Outputs ni reciben permisos IAM para `rds-data` y Secrets Manager. Continúan usando mocks para evitar mezclar aprovisionamiento con la migración de persistencia. En una fase posterior accederán mediante RDS Data API con permisos de mínimo privilegio sobre el clúster y el secreto administrado, sin activar IAM Database Authentication en PostgreSQL.
 
 `ManageMasterUserPassword: true` hace que RDS genere la contraseña y administre el secreto en Secrets Manager. CloudFormation solo expone el ARN del secreto; nunca su contenido.
 

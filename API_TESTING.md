@@ -11,7 +11,7 @@ Documento derivado de `backend/template.yaml`, los adaptadores Lambda, modelos P
 - Error inesperado: `{"error":"Error interno del servidor","code":"INTERNAL_SERVER_ERROR","details":[]}` (500).
 - Los IDs generados por servicios usan UUID v4, salvo catálogos, que anteponen `MOD-`, `FASE-` o `AG-`. Los modelos que reciben IDs los declaran como `str`; no aplican validación de formato UUID.
 - Fechas de salida son generadas por el servicio en UTC, ISO 8601 con sufijo `Z`; no son campos de entrada.
-- Los repositorios son mocks separados por Lambda. Las referencias disponibles de forma inicial incluyen `PROP-001`, `MOD-001`, `FASE-001` a `FASE-007`, `USR-001`, `USR-002` y `USR-010`, según el dominio.
+- Todos los dominios persisten en Aurora PostgreSQL mediante RDS Data API. Documentos administra exclusivamente metadata; no almacena archivos binarios.
 
 ## Esquemas Pydantic reales
 
@@ -34,12 +34,13 @@ Documento derivado de `backend/template.yaml`, los adaptadores Lambda, modelos P
 
 ## Usuarios
 
-Query parameters reales de `GET /usuarios`: `tipo_usuario` y `estado`; el código compara strings pero no valida sus enums en query.
+Query parameters reales de `GET /usuarios`: `correo`, `tipo_usuario` y `estado`. Pueden combinarse. `correo` usa coincidencia exacta case-insensitive; un resultado vacío responde 200 con `data: []`.
 
 | Método | Ruta | Descripción | Path params | Query | Body requerido | Body opcional | Ejemplo POST | Ejemplo PUT | Éxito | Error ejemplo | HTTP |
 |---|---|---|---|---|---|---|---|---|---|---|---|
 | GET | `/usuarios/health` | Salud | Ninguno | Ninguno | Sin body | — | — | — | `{"data":{"service":"usuarios","status":"ok"}}` | Error común 500 | 200 |
-| GET | `/usuarios` | Lista/filtra usuarios | Ninguno | `tipo_usuario`, `estado` opcionales | Sin body | — | — | — | `{"data":[],"count":0}` | Error común 500 | 200 |
+| GET | `/usuarios` | Lista/filtra usuarios | Ninguno | `correo`, `tipo_usuario`, `estado` opcionales | Sin body | — | — | — | `{"data":[],"count":0}` | Error común 500 | 200 |
+| GET | `/usuarios/{usuarioId}/propuestas` | Propuestas asociadas a un estudiante | `usuarioId`: string | Ninguno | Sin body | — | — | — | `{"data":[{"id":"uuid","titulo_tentativo":"...","descripcion_inicial":"...","estado_general":"BORRADOR","fecha_creacion":"...Z","fecha_actualizacion":"...Z"}],"count":1}` | `USER_NOT_FOUND` o `INVALID_USER_TYPE` | 200/404/409 |
 | GET | `/usuarios/{id}` | Lee usuario | `id`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"USR-001","nombre":"Ana Estudiante","correo":"ana@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"2026-07-28T19:00:00Z","fecha_ultimo_acceso":null}}` | `{"error":"Usuario no encontrado","code":"USER_NOT_FOUND","details":[]}` | 200/404 |
 | POST | `/usuarios` | Crea usuario | Ninguno | Ninguno | `nombre`, `correo`, `tipo_usuario` | Ninguno | `{"nombre":"Laura Gómez","correo":"laura@example.com","tipo_usuario":"ESTUDIANTE"}` | — | `{"message":"Usuario creado correctamente","data":{"id":"uuid","nombre":"Laura Gómez","correo":"laura@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"...Z","fecha_ultimo_acceso":null}}` | `{"error":"El correo ya está registrado","code":"EMAIL_ALREADY_EXISTS","details":[]}` | 201/400/409 |
 | PUT | `/usuarios/{id}` | Actualiza usuario | `id`: string | Ninguno | Ninguno | Los 4 campos de `UsuarioUpdate` | — | `{"nombre":"Laura Gómez Actualizada","estado":"ACTIVO"}` | `{"data":{"id":"uuid","nombre":"Laura Gómez Actualizada","correo":"laura@example.com","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"...Z","fecha_ultimo_acceso":null}}` | `{"error":"Usuario no encontrado","code":"USER_NOT_FOUND","details":[]}` | 200/400/404/409 |
@@ -55,12 +56,14 @@ Query parameters reales de `GET /usuarios`: `tipo_usuario` y `estado`; el códig
 | POST | `/propuestas` | Crea propuesta BORRADOR | Ninguno | Ninguno | `titulo_tentativo`, `descripcion_inicial` | Aliases aceptados: `titulo`, `descripcion` | `{"titulo_tentativo":"Sistema de tutorías inteligentes","descripcion_inicial":"Plataforma para acompañar proyectos académicos."}` | — | `{"message":"Propuesta creada correctamente","data":{"id":"uuid","titulo_tentativo":"Sistema de tutorías inteligentes","descripcion_inicial":"Plataforma para acompañar proyectos académicos.","estado_general":"BORRADOR","fecha_creacion":"...Z","fecha_actualizacion":"...Z"}}` | Error común 400 | 201/400 |
 | PUT | `/propuestas/{id}` | Actualiza propuesta | `id`: string | Ninguno | Ninguno | Campos de `PropuestaUpdate`; aliases heredados | — | `{"titulo_tentativo":"Título actualizado","estado_general":"EN_REVISION"}` | `{"data":{"id":"uuid","titulo_tentativo":"Título actualizado","descripcion_inicial":"...","estado_general":"EN_REVISION","fecha_creacion":"...Z","fecha_actualizacion":"...Z"}}` | `PROPOSAL_NOT_FOUND` | 200/400/404 |
 | DELETE | `/propuestas/{id}` | Cierre lógico | `id`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"uuid","estado_general":"CERRADA","fecha_actualizacion":"...Z"}}` | `PROPOSAL_NOT_FOUND` | 200/404 |
-| GET | `/propuestas/{id_propuesta}/estudiantes` | Lista relaciones | `id_propuesta`: string | Ninguno | Sin body | — | — | — | `{"data":[{"id":"REL-001","id_propuesta":"PROP-001","id_estudiante":"USR-001"}],"count":1}` | `PROPOSAL_NOT_FOUND` | 200/404 |
+| GET | `/propuestas/{id_propuesta}/estudiantes` | Lista perfiles completos de estudiantes | `id_propuesta`: string | Ninguno | Sin body | — | — | — | `{"data":[{"id":"USR-001","nombre":"Estudiante","correo":"student@crea.local","tipo_usuario":"ESTUDIANTE","estado":"ACTIVO","fecha_creacion":"...Z","fecha_ultimo_acceso":null}],"count":1}` | `PROPOSAL_NOT_FOUND` | 200/404 |
 | POST | `/propuestas/{id_propuesta}/estudiantes` | Asigna estudiante activo | `id_propuesta`: string | Ninguno | `id_estudiante` | Ninguno | `{"id_estudiante":"USR-002"}` | — | `{"message":"Estudiante asignado correctamente","data":{"id":"uuid","id_propuesta":"PROP-001","id_estudiante":"USR-002"}}` | `{"error":"El estudiante ya está asignado","code":"STUDENT_ALREADY_ASSIGNED","details":[]}` | 201/400/404/409 |
 | DELETE | `/propuestas/{id_propuesta}/estudiantes/{id_estudiante}` | Retira relación | Ambos strings | Ninguno | Sin body | — | — | — | `{"data":{"removed":true}}` | `ASSIGNMENT_NOT_FOUND` o `LAST_STUDENT_REQUIRED` | 200/404/409 |
-| GET | `/propuestas/{id_propuesta}/director` | Obtiene director activo | `id_propuesta`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"uuid","id_propuesta":"PROP-001","id_docente":"USR-010","fecha_asignacion":"...Z","estado":"ACTIVO"}}`; puede ser `{"data":null}` | `PROPOSAL_NOT_FOUND` | 200/404 |
+| GET | `/propuestas/{id_propuesta}/director` | Obtiene el perfil completo del docente activo | `id_propuesta`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"USR-010","nombre":"Docente","correo":"docente@crea.local","tipo_usuario":"DOCENTE","estado":"ACTIVO","fecha_creacion":"...Z","fecha_ultimo_acceso":null}}`; puede ser `{"data":null}` | `PROPOSAL_NOT_FOUND` | 200/404 |
 | POST | `/propuestas/{id_propuesta}/director` | Asigna docente activo | `id_propuesta`: string | Ninguno | `id_docente` | Ninguno | `{"id_docente":"USR-010"}` | — | `{"message":"Director asignado correctamente","data":{"id":"uuid","id_propuesta":"PROP-001","id_docente":"USR-010","fecha_asignacion":"...Z","estado":"ACTIVO"}}` | `ACTIVE_DIRECTOR_EXISTS`, `INVALID_USER_TYPE` o `USER_INACTIVE` | 201/400/404/409 |
 | DELETE | `/propuestas/{id_propuesta}/director` | Desactiva director | `id_propuesta`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"uuid","estado":"INACTIVO"}}` | `DIRECTOR_NOT_FOUND` | 200/404 |
+
+Todavía no existen `GET /docentes/{docenteId}/propuestas` ni un endpoint consolidado para el dashboard. El frontend debe componer temporalmente el dashboard del estudiante con las consultas documentadas arriba.
 
 ## Catálogos: módulos
 
@@ -127,17 +130,17 @@ No existe PUT ni DELETE para evaluaciones.
 | GET | `/documentos/{id}` | Lee metadato | `id`: string | Ninguno | Sin body | — | — | — | `{"data":{"id":"uuid","id_propuesta":"PROP-001","tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf","fecha_carga":"...Z"}}` | `DOCUMENT_NOT_FOUND` | 200/404 |
 | POST | `/propuestas/{id_propuesta}/documentos` | Crea metadato; no sube archivo | `id_propuesta`: string | Ninguno | `tipo_documento`, `nombre_archivo`, `ruta` | Ninguno | `{"tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf"}` | — | `{"message":"Documento creado correctamente","data":{"id":"uuid","id_propuesta":"PROP-001","tipo_documento":"ANEXO","nombre_archivo":"anexo.pdf","ruta":"temporal/anexo.pdf","fecha_carga":"...Z"}}` | `PROPOSAL_NOT_FOUND` o validación | 201/400/404 |
 | PUT | `/documentos/{id}` | Actualiza metadato | `id`: string | Ninguno | Ninguno | Campos de `DocumentoUpdate` | — | `{"nombre_archivo":"anexo-actualizado.pdf","tipo_documento":"INFORME"}` | `{"message":"Documento actualizado correctamente","data":{"id":"uuid","id_propuesta":"PROP-001","tipo_documento":"INFORME","nombre_archivo":"anexo-actualizado.pdf","ruta":"temporal/anexo.pdf","fecha_carga":"...Z"}}` | `DOCUMENT_NOT_FOUND`/validación | 200/400/404 |
-| DELETE | `/documentos/{id}` | Elimina metadato mock | `id`: string | Ninguno | Sin body | — | — | — | Sin body | `DOCUMENT_NOT_FOUND` | 204/404 |
+| DELETE | `/documentos/{id}` | Elimina físicamente el metadato | `id`: string | Ninguno | Sin body | — | — | — | Sin body | `DOCUMENT_NOT_FOUND` | 204/404 |
 
 ## Orden recomendado en Postman
 
 1. Crear usuario y guardar `usuarioId`.
 2. Crear propuesta y guardar `propuestaId`.
 3. Crear módulo, fase y agente; guardar sus IDs.
-4. Crear progreso usando una propuesta/fase que exista en el mock de esa Lambda (`PROP-001`, `FASE-001` inicialmente).
-5. Crear evaluación y documento usando las mismas referencias mock.
+4. Crear progreso usando una propuesta y una fase activa que existan en PostgreSQL.
+5. Crear evaluación usando referencias existentes en PostgreSQL y documento usando sus referencias mock.
 
-Por la separación de repositorios mock, crear una propuesta en `PropuestasFunction` no la crea dentro de `ProgresoFunction`, `EvaluacionesFunction` o `DocumentosFunction`. Para esos dominios, el código actual reconoce `PROP-001`; esto cambiará al usar persistencia compartida.
+Todos los dominios comparten ahora las referencias persistidas en PostgreSQL. Documentos conserva únicamente metadata; `ruta` continúa siendo un string y no implica almacenamiento S3.
 
 ## Colección Postman
 

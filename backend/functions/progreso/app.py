@@ -1,6 +1,6 @@
 import json
 from pydantic import ValidationError
-import repository as r,service
+import service
 def out(s,b):return {"statusCode":s,"headers":{"Content-Type":"application/json"},"body":json.dumps(b,ensure_ascii=False)}
 def body(e):
  try:return json.loads(e.get("body")) if isinstance(e.get("body"),str) else e.get("body")
@@ -14,7 +14,7 @@ def lambda_handler(e,c):
   if path=="/progreso/health":return out(200,{"data":{"service":"progreso","status":"ok"}})
   if path.endswith("/progreso"):
    if m=="GET":
-    data=[x for x in r.items if x["id_propuesta"]==pid];return out(200,{"data":data,"count":len(data)})
+    data=service.list_by_proposal(pid);return out(200,{"data":data,"count":len(data)})
    if m=="POST":return out(201,{"message":"Progreso creado correctamente","data":service.create(pid,body(e))})
   if "/progreso/" in path:
    if m=="GET":return out(200,{"data":service.get(pid,fid)})
